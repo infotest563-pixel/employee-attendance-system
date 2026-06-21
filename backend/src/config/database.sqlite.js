@@ -1,4 +1,4 @@
-// SQLite via better-sqlite3 — works locally AND on Vercel (/tmp is writable)
+// Uses Node.js built-in sqlite (Node 22+) — zero dependencies, works on Vercel
 const path = require('path');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
@@ -18,10 +18,11 @@ let db = null;
 
 const getDb = () => {
   if (!db) {
-    const Database = require('better-sqlite3');
-    db = new Database(DB_PATH);
-    db.pragma('journal_mode = WAL');
-    db.pragma('foreign_keys = ON');
+    // Node 22+ built-in sqlite
+    const { DatabaseSync } = require('node:sqlite');
+    db = new DatabaseSync(DB_PATH);
+    db.exec('PRAGMA journal_mode = WAL');
+    db.exec('PRAGMA foreign_keys = ON');
   }
   return db;
 };
@@ -57,7 +58,6 @@ const pool = {
 const connectDB = async () => {
   const database = getDb();
 
-  // Create tables
   database.exec(`
     CREATE TABLE IF NOT EXISTS employees (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -74,7 +74,6 @@ const connectDB = async () => {
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     );
-
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       employee_id TEXT UNIQUE NOT NULL,
@@ -83,7 +82,6 @@ const connectDB = async () => {
       is_active INTEGER DEFAULT 1,
       created_at TEXT DEFAULT (datetime('now'))
     );
-
     CREATE TABLE IF NOT EXISTS attendance (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       employee_id TEXT NOT NULL,
@@ -100,7 +98,6 @@ const connectDB = async () => {
       created_at TEXT DEFAULT (datetime('now')),
       UNIQUE(employee_id, date)
     );
-
     CREATE TABLE IF NOT EXISTS break_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       attendance_id INTEGER NOT NULL,
@@ -111,7 +108,6 @@ const connectDB = async () => {
       break_duration_minutes INTEGER DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now'))
     );
-
     CREATE TABLE IF NOT EXISTS audit_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       action_by TEXT NOT NULL,
@@ -124,7 +120,7 @@ const connectDB = async () => {
     );
   `);
 
-  // Seed demo data if no admin exists
+  // Seed demo data
   const existing = database.prepare('SELECT id FROM employees WHERE employee_id = ?').get('ADMIN001');
   if (!existing) {
     const adminHash = bcrypt.hashSync('password', 10);
@@ -139,25 +135,19 @@ const connectDB = async () => {
       `INSERT OR IGNORE INTO users (employee_id,password_hash,role) VALUES (?,?,?)`
     );
 
-    const seed = database.transaction(() => {
-      insertEmp.run('ADMIN001','System','Admin','admin@company.com','IT','System Administrator',today);
-      insertUser.run('ADMIN001', adminHash, 'admin');
+    insertEmp.run('ADMIN001','System','Admin','admin@company.com','IT','System Administrator',today);
+    insertUser.run('ADMIN001', adminHash, 'admin');
+    insertEmp.run('EMP001','John','Doe','john@company.com','Engineering','Software Engineer',today);
+    insertUser.run('EMP001', empHash, 'employee');
+    insertEmp.run('EMP002','Jane','Smith','jane@company.com','HR','HR Manager',today);
+    insertUser.run('EMP002', empHash, 'employee');
+    insertEmp.run('EMP003','Bob','Wilson','bob@company.com','Finance','Accountant',today);
+    insertUser.run('EMP003', empHash, 'employee');
 
-      insertEmp.run('EMP001','John','Doe','john@company.com','Engineering','Software Engineer',today);
-      insertUser.run('EMP001', empHash, 'employee');
-
-      insertEmp.run('EMP002','Jane','Smith','jane@company.com','HR','HR Manager',today);
-      insertUser.run('EMP002', empHash, 'employee');
-
-      insertEmp.run('EMP003','Bob','Wilson','bob@company.com','Finance','Accountant',today);
-      insertUser.run('EMP003', empHash, 'employee');
-    });
-    seed();
-
-    console.log('✅ Demo data seeded — ADMIN001/password, EMP001-003/emp123');
+    console.log('✅ Seeded: ADMIN001/password, EMP001-003/emp123');
   }
 
-  console.log('✅ SQLite (better-sqlite3) ready:', DB_PATH);
+  console.log('✅ node:sqlite ready:', DB_PATH);
   return pool;
 };
 
