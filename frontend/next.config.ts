@@ -8,8 +8,7 @@ const nextConfig: NextConfig = {
     domains: ['localhost'],
   },
   async rewrites() {
-    // In production (Vercel), backend is served at /api via vercel.json routes.
-    // In local dev, proxy to express running on port 5000.
+    // Local dev only: proxy /api/* to Express on port 5000
     if (process.env.NODE_ENV === 'development') {
       return [
         {
