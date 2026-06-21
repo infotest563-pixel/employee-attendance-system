@@ -153,7 +153,7 @@ export default function EmployeeDashboard() {
               {format(currentTime, 'EEEE, MMMM d, yyyy')}
             </p>
             <h2 className="text-3xl md:text-4xl font-bold tabular-nums">
-              {format(currentTime, 'HH:mm:ss')}
+              {format(currentTime, 'hh:mm:ss a')}
             </h2>
             <div className="flex items-center gap-2 mt-2">
               <span className={`status-dot ${status === 'working' ? 'working' : status === 'on_break' ? 'break' : 'offline'}`} />
@@ -237,7 +237,7 @@ export default function EmployeeDashboard() {
             <p className="text-xs text-gray-500 dark:text-gray-400">Login Time</p>
           </div>
           <p className="text-xl font-bold text-gray-800 dark:text-white tabular-nums">
-            {attendance?.login_time ? format(new Date(attendance.login_time), 'HH:mm') : '--:--'}
+            {attendance?.login_time ? format(new Date(attendance.login_time), 'hh:mm a') : '--:--'}
           </p>
           <p className="text-xs text-gray-400 mt-0.5">today</p>
         </div>
@@ -249,7 +249,7 @@ export default function EmployeeDashboard() {
             <p className="text-xs text-gray-500 dark:text-gray-400">Logout Time</p>
           </div>
           <p className="text-xl font-bold text-gray-800 dark:text-white tabular-nums">
-            {attendance?.logout_time ? format(new Date(attendance.logout_time), 'HH:mm') : '--:--'}
+            {attendance?.logout_time ? format(new Date(attendance.logout_time), 'hh:mm a') : '--:--'}
           </p>
           <p className="text-xs text-gray-400 mt-0.5">today</p>
         </div>
@@ -273,8 +273,8 @@ export default function EmployeeDashboard() {
                   <div>
                     <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{breakReasonLabel(b.break_reason)}</p>
                     <p className="text-xs text-gray-400">
-                      {format(new Date(b.break_start), 'HH:mm')}
-                      {b.break_end ? ` → ${format(new Date(b.break_end), 'HH:mm')}` : ' → ongoing'}
+                      {format(new Date(b.break_start), 'hh:mm a')}
+                      {b.break_end ? ` → ${format(new Date(b.break_end), 'hh:mm a')}` : ' → ongoing'}
                     </p>
                   </div>
                 </div>

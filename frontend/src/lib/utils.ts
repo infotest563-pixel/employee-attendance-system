@@ -12,7 +12,7 @@ export const formatDateTime = (date: string | Date): string => {
   if (!date) return '-';
   try {
     const d = typeof date === 'string' ? parseISO(date) : date;
-    return format(d, 'dd/MM/yyyy HH:mm');
+    return format(d, 'dd/MM/yyyy hh:mm a');  // 12-hour: 21/06/2026 04:09 PM
   } catch { return String(date); }
 };
 
@@ -20,7 +20,7 @@ export const formatTime = (date: string | Date): string => {
   if (!date) return '-';
   try {
     const d = typeof date === 'string' ? parseISO(date) : date;
-    return format(d, 'HH:mm');
+    return format(d, 'hh:mm a');  // 12-hour: 04:09 PM
   } catch { return String(date); }
 };
 

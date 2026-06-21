@@ -174,8 +174,8 @@ export default function ReportsPage() {
                           <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{r.first_name} {r.last_name}</p>
                           <p className="text-xs text-gray-400">{r.employee_id}</p>
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{r.login_time ? format(new Date(r.login_time), 'HH:mm') : '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{r.logout_time ? format(new Date(r.logout_time), 'HH:mm') : <span className="text-green-500 text-xs">● Active</span>}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{r.login_time ? format(new Date(r.login_time), 'hh:mm a') : '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{r.logout_time ? format(new Date(r.logout_time), 'hh:mm a') : <span className="text-green-500 text-xs">● Active</span>}</td>
                         <td className="px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-300">{minutesToHours(r.total_working_minutes)}</td>
                         <td className="px-4 py-3 text-sm text-gray-500">{minutesToHours(r.total_break_minutes)}</td>
                         <td className="px-4 py-3">
@@ -206,44 +206,49 @@ export default function ReportsPage() {
             </button>
           </div>
 
-          {monthlyData && (
-            <div className="space-y-5">
-              {/* Summary cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {monthlyData.summary.map((s, i) => (
-                  <div key={i} className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-4 shadow-sm">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white text-sm font-semibold">
-                        {s.first_name[0]}{s.last_name[0]}
+              {monthlyData && monthlyData.summary && monthlyData.summary.length > 0 && (
+                <div className="space-y-5">
+                  {/* Summary cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {monthlyData.summary.map((s, i) => (
+                      <div key={i} className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-4 shadow-sm">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white text-sm font-semibold">
+                            {(s.first_name?.[0] || '?')}{(s.last_name?.[0] || '?')}
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{s.first_name} {s.last_name}</p>
+                            <p className="text-xs text-gray-400">{s.department || '-'}</p>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-center">
+                          <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-2">
+                            <p className="text-lg font-bold text-green-700 dark:text-green-400">{s.days_present ?? 0}</p>
+                            <p className="text-xs text-gray-500">Days Present</p>
+                          </div>
+                          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-2">
+                            <p className="text-lg font-bold text-blue-700 dark:text-blue-400">{s.total_hours ?? 0}h</p>
+                            <p className="text-xs text-gray-500">Total Hours</p>
+                          </div>
+                          <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-2">
+                            <p className="text-lg font-bold text-purple-700 dark:text-purple-400">{s.avg_hours_per_day ?? 0}h</p>
+                            <p className="text-xs text-gray-500">Avg/Day</p>
+                          </div>
+                          <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-2">
+                            <p className="text-lg font-bold text-yellow-700 dark:text-yellow-400">{minutesToHours(s.total_break_minutes)}</p>
+                            <p className="text-xs text-gray-500">Total Break</p>
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{s.first_name} {s.last_name}</p>
-                        <p className="text-xs text-gray-400">{s.department || '-'}</p>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 text-center">
-                      <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-2">
-                        <p className="text-lg font-bold text-green-700 dark:text-green-400">{s.days_present}</p>
-                        <p className="text-xs text-gray-500">Days Present</p>
-                      </div>
-                      <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-2">
-                        <p className="text-lg font-bold text-blue-700 dark:text-blue-400">{s.total_hours}h</p>
-                        <p className="text-xs text-gray-500">Total Hours</p>
-                      </div>
-                      <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-2">
-                        <p className="text-lg font-bold text-purple-700 dark:text-purple-400">{s.avg_hours_per_day}h</p>
-                        <p className="text-xs text-gray-500">Avg/Day</p>
-                      </div>
-                      <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-2">
-                        <p className="text-lg font-bold text-yellow-700 dark:text-yellow-400">{minutesToHours(s.total_break_minutes)}</p>
-                        <p className="text-xs text-gray-500">Total Break</p>
-                      </div>
-                    </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
+                </div>
+              )}
+              {monthlyData && (!monthlyData.summary || monthlyData.summary.length === 0) && (
+                <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-8 text-center text-gray-400 shadow-sm">
+                  No attendance records found for this month.
+                </div>
+              )}
         </div>
       )}
 
@@ -290,8 +295,8 @@ export default function ReportsPage() {
                           <p className="text-xs text-gray-400">{r.employee_id}</p>
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{formatDate(r.date)}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{r.login_time ? format(new Date(r.login_time), 'HH:mm') : '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{r.logout_time ? format(new Date(r.logout_time), 'HH:mm') : '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{r.login_time ? format(new Date(r.login_time), 'hh:mm a') : '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{r.logout_time ? format(new Date(r.logout_time), 'hh:mm a') : '-'}</td>
                         <td className="px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-300">{minutesToHours(r.total_working_minutes)}</td>
                         <td className="px-4 py-3">
                           <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${statusBg(r.status)}`}>{r.status}</span>
