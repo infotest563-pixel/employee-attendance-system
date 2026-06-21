@@ -4,13 +4,21 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import toast from 'react-hot-toast';
-import { Eye, EyeOff, LogIn, Shield } from 'lucide-react';
+import { Eye, EyeOff, LogIn, Shield, ChevronDown, ChevronUp } from 'lucide-react';
+
+const DEMO_USERS = [
+  { role: 'Admin',    id: 'ADMIN001', name: 'System Admin',  email: 'admin@company.com',  password: 'password' },
+  { role: 'Employee', id: 'EMP001',   name: 'John Doe',      email: 'john@company.com',   password: 'emp123'   },
+  { role: 'Employee', id: 'EMP002',   name: 'Jane Smith',    email: 'jane@company.com',   password: 'emp123'   },
+  { role: 'Employee', id: 'EMP003',   name: 'Bob Wilson',    email: 'bob@company.com',    password: 'emp123'   },
+];
 
 export default function LoginPage() {
   const [employeeId, setEmployeeId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showDemo, setShowDemo] = useState(false);
   const { login } = useAuth();
   const router = useRouter();
 
@@ -144,9 +152,58 @@ export default function LoginPage() {
               </button>
             </form>
 
-            <div className="mt-8 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800">
-              <p className="text-xs text-blue-700 dark:text-blue-400 font-medium mb-2">Demo Credentials</p>
-              <p className="text-xs text-blue-600 dark:text-blue-500">Admin: <span className="font-mono font-bold">ADMIN001</span> / <span className="font-mono font-bold">password</span></p>
+            <div className="mt-6 rounded-xl border border-blue-100 dark:border-blue-800 overflow-hidden">
+              {/* Toggle header */}
+              <button
+                type="button"
+                onClick={() => setShowDemo(!showDemo)}
+                className="w-full flex items-center justify-between px-4 py-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition"
+              >
+                <span className="text-xs font-semibold tracking-wide uppercase">Demo Credentials</span>
+                {showDemo ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+
+              {/* Expandable table */}
+              {showDemo && (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="bg-blue-50/80 dark:bg-blue-900/10 border-b border-blue-100 dark:border-blue-800">
+                        <th className="text-left px-3 py-2 font-medium text-blue-600 dark:text-blue-400">Role</th>
+                        <th className="text-left px-3 py-2 font-medium text-blue-600 dark:text-blue-400">Name</th>
+                        <th className="text-left px-3 py-2 font-medium text-blue-600 dark:text-blue-400">Email</th>
+                        <th className="text-left px-3 py-2 font-medium text-blue-600 dark:text-blue-400">ID</th>
+                        <th className="text-left px-3 py-2 font-medium text-blue-600 dark:text-blue-400">Password</th>
+                        <th className="px-3 py-2" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {DEMO_USERS.map((u) => (
+                        <tr key={u.id} className="border-b border-blue-50 dark:border-blue-900/30 last:border-0 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition">
+                          <td className="px-3 py-2">
+                            <span className={`px-1.5 py-0.5 rounded font-semibold ${u.role === 'Admin' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
+                              {u.role}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap">{u.name}</td>
+                          <td className="px-3 py-2 text-gray-500 dark:text-gray-400 font-mono">{u.email}</td>
+                          <td className="px-3 py-2 font-mono font-bold text-gray-800 dark:text-gray-200">{u.id}</td>
+                          <td className="px-3 py-2 font-mono text-gray-700 dark:text-gray-300">{u.password}</td>
+                          <td className="px-3 py-2">
+                            <button
+                              type="button"
+                              onClick={() => { setEmployeeId(u.id); setPassword(u.password); }}
+                              className="px-2 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition whitespace-nowrap"
+                            >
+                              Use
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         </div>
