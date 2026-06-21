@@ -30,11 +30,10 @@ export default function LoginPage() {
     }
     setLoading(true);
     try {
-      await login(employeeId, password);
+      const userData = await login(employeeId, password);
       toast.success('Login successful!');
-      // Redirect handled by auth context / page.tsx
-      const stored = JSON.parse(localStorage.getItem('user') || '{}');
-      if (stored.role === 'admin') {
+      // Use returned user data directly — don't rely on localStorage timing
+      if (userData?.role === 'admin') {
         router.replace('/admin/dashboard');
       } else {
         router.replace('/employee/dashboard');
