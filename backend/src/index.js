@@ -46,12 +46,17 @@ app.use((err, req, res, next) => {
   res.status(500).json({ success: false, message: 'Internal server error' });
 });
 
-// Start server
-connectDB().then(() => {
-  app.listen(PORT, () => {
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
-    console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+// Start server (only when running directly, not on Vercel serverless)
+if (process.env.NODE_ENV !== 'production' || process.env.VERCEL !== '1') {
+  connectDB().then(() => {
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running on http://localhost:${PORT}`);
+      console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+    });
   });
-});
+} else {
+  // On Vercel: initialize DB connection once
+  connectDB().catch(console.error);
+}
 
 module.exports = app;
