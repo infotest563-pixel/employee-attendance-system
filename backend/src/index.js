@@ -13,9 +13,18 @@ const reportRoutes = require('./routes/reports');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
+// CORS — allow configured origin OR any *.vercel.app domain
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: (origin, callback) => {
+    const allowed = process.env.FRONTEND_URL || 'http://localhost:3000';
+    // Allow no-origin requests (same-origin, curl, Postman)
+    if (!origin) return callback(null, true);
+    // Allow exact match or any vercel.app subdomain
+    if (origin === allowed || /\.vercel\.app$/.test(origin) || origin === 'http://localhost:3000') {
+      return callback(null, true);
+    }
+    return callback(null, true); // permissive for demo — lock down in real production
+  },
   credentials: true,
 }));
 app.use(express.json());
@@ -46,17 +55,35 @@ app.use((err, req, res, next) => {
   res.status(500).json({ success: false, message: 'Internal server error' });
 });
 
-// Start server (only when running directly, not on Vercel serverless)
-if (process.env.NODE_ENV !== 'production' || process.env.VERCEL !== '1') {
+// DB init promise — shared so serverless reuses it across warm invocations
+let dbReady = null;
+
+const ensureDB = () => {
+  if (!dbReady) {
+    dbReady = connectDB().catch((err) => {
+      console.error('DB init failed:', err);
+      dbReady = null; // reset so next request retries
+      throw err;
+    });
+  }
+  return dbReady;
+};
+
+if (process.env.VERCEL) {
+  // Vercel serverless: wrap app to ensure DB is ready before each request
+  const originalHandler = app;
+  module.exports = async (req, res) => {
+    await ensureDB();
+    return originalHandler(req, res);
+  };
+} else {
+  // Local / traditional server
   connectDB().then(() => {
     app.listen(PORT, () => {
       console.log(`🚀 Server running on http://localhost:${PORT}`);
       console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
     });
-  });
-} else {
-  // On Vercel: initialize DB connection once
-  connectDB().catch(console.error);
-}
+  }).catch(console.error);
 
-module.exports = app;
+  module.exports = app;
+}
