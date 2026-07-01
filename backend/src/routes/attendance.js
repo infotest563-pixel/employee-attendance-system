@@ -85,27 +85,29 @@ router.post('/clock-out', authenticate, async (req, res) => {
     if (!attendance.length) return res.status(400).json({ success: false, message: 'Not clocked in today' });
     if (attendance[0].logout_time) return res.status(400).json({ success: false, message: 'Already clocked out' });
 
-    // Close any open breaks
+    // Close any open real breaks
     const [openBreaks] = await pool.query(
-      'SELECT id FROM break_logs WHERE attendance_id = ? AND break_end IS NULL AND break_reason != ?',
+      'SELECT id, break_start FROM break_logs WHERE attendance_id = ? AND break_end IS NULL AND break_reason != ?',
       [attendance[0].id, 'resume_segment']
     );
     for (const b of openBreaks) {
+      const bMins = diffMins(b.break_start, now);
       await pool.query(
-        `UPDATE break_logs SET break_end = ?, break_duration_minutes = CAST((julianday(?) - julianday(break_start)) * 1440 AS INTEGER) WHERE id = ?`,
-        [now, now, b.id]
+        `UPDATE break_logs SET break_end = ?, break_duration_minutes = ? WHERE id = ?`,
+        [now, bMins, b.id]
       );
     }
 
-    // Close any open resume_segment (marks when re-clock-in started)
+    // Close any unclosed resume_segment (shouldn't happen but safety net)
     const [openSegments] = await pool.query(
-      'SELECT id FROM break_logs WHERE attendance_id = ? AND break_end IS NULL AND break_reason = ?',
+      'SELECT id, break_start FROM break_logs WHERE attendance_id = ? AND break_end IS NULL AND break_reason = ?',
       [attendance[0].id, 'resume_segment']
     );
     for (const s of openSegments) {
+      const sMins = diffMins(s.break_start, now);
       await pool.query(
-        `UPDATE break_logs SET break_end = ?, break_duration_minutes = CAST((julianday(?) - julianday(break_start)) * 1440 AS INTEGER) WHERE id = ?`,
-        [now, now, s.id]
+        `UPDATE break_logs SET break_end = ?, break_duration_minutes = ? WHERE id = ?`,
+        [now, sMins, s.id]
       );
     }
 
@@ -283,11 +285,15 @@ router.put('/:id/correct', authenticate, authorizeAdmin, async (req, res) => {
       const totalMins = moment(logout_time).diff(moment(login_time), 'minutes');
       workingMinutes = Math.max(0, totalMins - (existing[0].total_break_minutes || 0));
     }
+    const [shiftCfg] = await pool.query('SELECT * FROM shift_config LIMIT 1');
+    const stdMins = (shiftCfg[0]?.standard_hours || 9) * 60;
+    const maxOtMins = (shiftCfg[0]?.max_overtime_hours || 4) * 60;
+    const overtimeMinutes = Math.min(Math.max(0, workingMinutes - stdMins), maxOtMins);
 
     await pool.query(
-      `UPDATE attendance SET login_time=?,logout_time=?,status=?,notes=?,total_working_minutes=?,is_corrected=1,corrected_by=?,corrected_at=datetime('now') WHERE id=?`,
+      `UPDATE attendance SET login_time=?,logout_time=?,status=?,notes=?,total_working_minutes=?,overtime_minutes=?,is_corrected=1,corrected_by=?,corrected_at=datetime('now') WHERE id=?`,
       [login_time || existing[0].login_time, logout_time || existing[0].logout_time,
-       status || existing[0].status, notes || existing[0].notes, workingMinutes, req.user.employee_id, attId]
+       status || existing[0].status, notes || existing[0].notes, workingMinutes, overtimeMinutes, req.user.employee_id, attId]
     );
 
     await createAuditLog(req.user.employee_id, 'attendance_correction', 'attendance', String(attId), `Corrected attendance ID ${attId}`, req.ip);

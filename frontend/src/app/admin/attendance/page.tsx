@@ -21,6 +21,7 @@ interface AttendanceRecord {
   status: string;
   total_working_minutes: number;
   total_break_minutes: number;
+  overtime_minutes: number;
   working_hours_formatted: string;
   break_time_formatted: string;
   is_corrected: number;
