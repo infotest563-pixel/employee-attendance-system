@@ -17,11 +17,12 @@ interface SidebarProps {
 }
 
 const adminNav = [
-  { label: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
-  { label: 'Employees', href: '/admin/employees', icon: Users },
-  { label: 'Attendance', href: '/admin/attendance', icon: Clock },
-  { label: 'Reports', href: '/admin/reports', icon: BarChart2 },
-  { label: 'Audit Logs', href: '/admin/audit-logs', icon: ClipboardList },
+  { label: 'Dashboard',    href: '/admin/dashboard',   icon: LayoutDashboard },
+  { label: 'Employees',    href: '/admin/employees',   icon: Users },
+  { label: 'Attendance',   href: '/admin/attendance',  icon: Clock },
+  { label: 'Work Hours',   href: '/admin/work-hours',  icon: FileText },
+  { label: 'Reports',      href: '/admin/reports',     icon: BarChart2 },
+  { label: 'Audit Logs',   href: '/admin/audit-logs',  icon: ClipboardList },
 ];
 
 const employeeNav = [
