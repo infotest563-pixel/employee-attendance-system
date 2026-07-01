@@ -127,6 +127,7 @@ export default function AttendancePage() {
                 <th className="text-left text-xs font-medium text-gray-500 px-4 py-3 hidden md:table-cell">Logout</th>
                 <th className="text-left text-xs font-medium text-gray-500 px-4 py-3 hidden lg:table-cell">Working</th>
                 <th className="text-left text-xs font-medium text-gray-500 px-4 py-3 hidden lg:table-cell">Break</th>
+                <th className="text-left text-xs font-medium text-gray-500 px-4 py-3 hidden lg:table-cell">Overtime</th>
                 <th className="text-left text-xs font-medium text-gray-500 px-4 py-3">Status</th>
                 <th className="text-right text-xs font-medium text-gray-500 px-6 py-3">Actions</th>
               </tr>
@@ -141,7 +142,7 @@ export default function AttendancePage() {
                   </tr>
                 ))
               ) : records.length === 0 ? (
-                <tr><td colSpan={8} className="text-center py-12 text-gray-400">No records found</td></tr>
+                <tr><td colSpan={9} className="text-center py-12 text-gray-400">No records found</td></tr>
               ) : records.map((rec) => (
                 <tr key={rec.id} className="table-row-hover border-b border-gray-50 dark:border-gray-800/50 last:border-0">
                   <td className="px-6 py-3">
@@ -162,6 +163,13 @@ export default function AttendancePage() {
                   </td>
                   <td className="px-4 py-3 hidden lg:table-cell text-sm text-gray-700 dark:text-gray-300 font-medium">{minutesToHours(rec.total_working_minutes)}</td>
                   <td className="px-4 py-3 hidden lg:table-cell text-sm text-gray-600 dark:text-gray-400">{minutesToHours(rec.total_break_minutes)}</td>
+                  <td className="px-4 py-3 hidden lg:table-cell text-sm">
+                    {(rec as AttendanceRecord & { overtime_minutes?: number }).overtime_minutes ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
+                        +{minutesToHours((rec as AttendanceRecord & { overtime_minutes?: number }).overtime_minutes!)}
+                      </span>
+                    ) : <span className="text-gray-300 text-xs">—</span>}
+                  </td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${statusColor(rec.status)}`}>
                       {rec.status.replace('_', ' ')}

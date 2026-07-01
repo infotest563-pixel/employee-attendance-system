@@ -37,9 +37,21 @@ const T = {
   attendance:  [],
   break_logs:  [],
   audit_logs:  [],
+  shift_config: [
+    {
+      id: 1,
+      shift_start: '09:00',
+      shift_end: '18:00',
+      standard_hours: 9,
+      max_overtime_hours: 4,
+      overtime_rate: 1.5,
+      updated_at: now(),
+      updated_by: 'ADMIN001',
+    }
+  ],
 };
 
-let nextId = { employees: 5, users: 5, attendance: 1, break_logs: 1, audit_logs: 1 };
+let nextId = { employees: 5, users: 5, attendance: 1, break_logs: 1, audit_logs: 1, shift_config: 2 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const ts = () => new Date().toISOString().replace('T', ' ').slice(0, 19);
@@ -334,7 +346,7 @@ function execInsert(sql, params) {
   if (!row.created_at) row.created_at = ts();
   if (tname === 'employees') { if (!row.updated_at) row.updated_at = row.created_at; if (row.is_active === undefined) row.is_active = 1; }
   if (tname === 'users') { if (row.is_active === undefined) row.is_active = 1; }
-  if (tname === 'attendance') { row.total_break_minutes = row.total_break_minutes ?? 0; row.total_working_minutes = row.total_working_minutes ?? 0; row.is_corrected = row.is_corrected ?? 0; }
+  if (tname === 'attendance') { row.total_break_minutes = row.total_break_minutes ?? 0; row.total_working_minutes = row.total_working_minutes ?? 0; row.overtime_minutes = row.overtime_minutes ?? 0; row.is_corrected = row.is_corrected ?? 0; }
   if (tname === 'break_logs') { row.break_duration_minutes = row.break_duration_minutes ?? 0; }
   table.push(row);
   return { changes: 1, insertId: id };

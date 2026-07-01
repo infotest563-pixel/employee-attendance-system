@@ -85,7 +85,9 @@ export default function EmployeeDashboard() {
     setActionLoading(true);
     try {
       const res = await api.post('/attendance/clock-out');
-      toast.success(`Clocked out! Total: ${minutesToHours(res.data.total_working_minutes)} 👋`);
+      const ot = res.data.overtime_minutes || 0;
+      const otMsg = ot > 0 ? ` | Overtime: ${minutesToHours(ot)} 🔥` : '';
+      toast.success(`Clocked out! Working: ${minutesToHours(res.data.total_working_minutes)}${otMsg} 👋`);
       fetchStatus();
     } catch (err: unknown) {
       toast.error((err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to clock out');

@@ -17,13 +17,14 @@ router.post('/clock-in', authenticate, async (req, res) => {
       [empId, today]
     );
 
+    // Case 1: Record exists and currently working (no logout_time)
     if (existing.length && !existing[0].logout_time) {
       const [openBreak] = await pool.query(
         'SELECT id FROM break_logs WHERE attendance_id = ? AND break_end IS NULL',
         [existing[0].id]
       );
       if (openBreak.length) {
-        const mins = moment(now).diff(moment().subtract(0), 'minutes');
+        // End the break and resume working
         await pool.query(
           `UPDATE break_logs SET break_end = ?, break_duration_minutes = CAST((julianday(?) - julianday(break_start)) * 1440 AS INTEGER) WHERE id = ?`,
           [now, now, openBreak[0].id]
@@ -38,10 +39,23 @@ router.post('/clock-in', authenticate, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Already clocked in and working' });
     }
 
+    // Case 2: Record exists but clocked out — RE-CLOCK-IN (accumulate)
+    // Store the re-entry as a special break_log entry with reason 'resume'
     if (existing.length && existing[0].logout_time) {
-      return res.status(400).json({ success: false, message: 'Already clocked out for today' });
+      // Reopen the attendance record (clear logout_time) so employee can continue
+      await pool.query(
+        `UPDATE attendance SET logout_time = NULL WHERE id = ?`,
+        [existing[0].id]
+      );
+      // Log this re-entry as a 'resume' segment in break_logs
+      await pool.query(
+        `INSERT INTO break_logs (attendance_id, employee_id, break_start, break_reason) VALUES (?, ?, ?, ?)`,
+        [existing[0].id, empId, now, 'resume_segment']
+      );
+      return res.json({ success: true, message: 'Re-clocked in — time continues accumulating', login_time: now, status: 'working' });
     }
 
+    // Case 3: First clock-in of the day
     await pool.query(
       'INSERT INTO attendance (employee_id, date, login_time, status) VALUES (?, ?, ?, ?)',
       [empId, today, now, 'present']
@@ -69,9 +83,10 @@ router.post('/clock-out', authenticate, async (req, res) => {
     if (!attendance.length) return res.status(400).json({ success: false, message: 'Not clocked in today' });
     if (attendance[0].logout_time) return res.status(400).json({ success: false, message: 'Already clocked out' });
 
+    // Close any open breaks
     const [openBreaks] = await pool.query(
-      'SELECT id FROM break_logs WHERE attendance_id = ? AND break_end IS NULL',
-      [attendance[0].id]
+      'SELECT id FROM break_logs WHERE attendance_id = ? AND break_end IS NULL AND break_reason != ?',
+      [attendance[0].id, 'resume_segment']
     );
     for (const b of openBreaks) {
       await pool.query(
@@ -80,20 +95,55 @@ router.post('/clock-out', authenticate, async (req, res) => {
       );
     }
 
-    const [breaks] = await pool.query(
-      'SELECT COALESCE(SUM(break_duration_minutes),0) as total FROM break_logs WHERE attendance_id = ?',
-      [attendance[0].id]
+    // Close any open resume_segment (marks when re-clock-in started)
+    const [openSegments] = await pool.query(
+      'SELECT id FROM break_logs WHERE attendance_id = ? AND break_end IS NULL AND break_reason = ?',
+      [attendance[0].id, 'resume_segment']
     );
+    for (const s of openSegments) {
+      await pool.query(
+        `UPDATE break_logs SET break_end = ?, break_duration_minutes = CAST((julianday(?) - julianday(break_start)) * 1440 AS INTEGER) WHERE id = ?`,
+        [now, now, s.id]
+      );
+    }
+
+    // Sum all break minutes (real breaks only, not resume_segments)
+    const [breaks] = await pool.query(
+      `SELECT COALESCE(SUM(break_duration_minutes),0) as total FROM break_logs WHERE attendance_id = ? AND break_reason != ?`,
+      [attendance[0].id, 'resume_segment']
+    );
+    // Sum gap minutes (time between clock-out and re-clock-in = resume_segment duration before it was used as "gap")
+    // Actually gaps = sum of resume_segment break_duration_minutes = time they were ABSENT between segments
+    const [gaps] = await pool.query(
+      `SELECT COALESCE(SUM(break_duration_minutes),0) as total FROM break_logs WHERE attendance_id = ? AND break_reason = ?`,
+      [attendance[0].id, 'resume_segment']
+    );
+
     const totalBreak = breaks[0].total || 0;
+    const totalGap   = gaps[0].total || 0;  // time absent between re-clock-ins (not paid)
     const totalMinutes = moment(now).diff(moment(attendance[0].login_time), 'minutes');
-    const workingMinutes = Math.max(0, totalMinutes - totalBreak);
+    const workingMinutes = Math.max(0, totalMinutes - totalBreak - totalGap);
+
+    // Get shift config for overtime calculation
+    const [shiftCfg] = await pool.query('SELECT * FROM shift_config LIMIT 1');
+    const stdHours = shiftCfg.length ? (shiftCfg[0].standard_hours || 9) : 9;
+    const maxOtHours = shiftCfg.length ? (shiftCfg[0].max_overtime_hours || 4) : 4;
+    const stdMins = stdHours * 60;
+    const maxOtMins = maxOtHours * 60;
+    const overtimeMinutes = Math.min(Math.max(0, workingMinutes - stdMins), maxOtMins);
 
     await pool.query(
-      `UPDATE attendance SET logout_time = ?, total_break_minutes = ?, total_working_minutes = ? WHERE id = ?`,
-      [now, totalBreak, workingMinutes, attendance[0].id]
+      `UPDATE attendance SET logout_time = ?, total_break_minutes = ?, total_working_minutes = ?, overtime_minutes = ? WHERE id = ?`,
+      [now, totalBreak, workingMinutes, overtimeMinutes, attendance[0].id]
     );
 
-    res.json({ success: true, message: 'Clocked out', logout_time: now, total_working_minutes: workingMinutes, total_break_minutes: totalBreak });
+    res.json({
+      success: true, message: 'Clocked out',
+      logout_time: now,
+      total_working_minutes: workingMinutes,
+      total_break_minutes: totalBreak,
+      overtime_minutes: overtimeMinutes,
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -286,6 +336,42 @@ router.get('/breaks/:attendanceId', authenticate, async (req, res) => {
     const [rows] = await pool.query('SELECT * FROM break_logs WHERE attendance_id = ? ORDER BY break_start', [req.params.attendanceId]);
     res.json({ success: true, data: rows });
   } catch (error) {
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// GET /api/attendance/shift-config
+router.get('/shift-config', authenticate, async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM shift_config LIMIT 1');
+    res.json({ success: true, data: rows[0] || { shift_start: '09:00', shift_end: '18:00', standard_hours: 9, max_overtime_hours: 4, overtime_rate: 1.5 } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// PUT /api/attendance/shift-config (admin only)
+router.put('/shift-config', authenticate, authorizeAdmin, async (req, res) => {
+  try {
+    const { shift_start, shift_end, standard_hours, max_overtime_hours, overtime_rate } = req.body;
+    const [existing] = await pool.query('SELECT * FROM shift_config LIMIT 1');
+    if (existing.length) {
+      await pool.query(
+        `UPDATE shift_config SET shift_start=?, shift_end=?, standard_hours=?, max_overtime_hours=?, overtime_rate=?, updated_at=?, updated_by=? WHERE id=?`,
+        [shift_start, shift_end, standard_hours, max_overtime_hours, overtime_rate,
+         new Date().toISOString().replace('T',' ').slice(0,19), req.user.employee_id, existing[0].id]
+      );
+    } else {
+      await pool.query(
+        `INSERT INTO shift_config (shift_start, shift_end, standard_hours, max_overtime_hours, overtime_rate, updated_at, updated_by) VALUES (?,?,?,?,?,?,?)`,
+        [shift_start, shift_end, standard_hours, max_overtime_hours, overtime_rate,
+         new Date().toISOString().replace('T',' ').slice(0,19), req.user.employee_id]
+      );
+    }
+    await createAuditLog(req.user.employee_id, 'update', 'shift_config', '1', 'Shift configuration updated', req.ip);
+    res.json({ success: true, message: 'Shift config saved' });
+  } catch (error) {
+    console.error(error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
