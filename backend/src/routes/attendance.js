@@ -38,8 +38,9 @@ router.post('/clock-in', authenticate, async (req, res) => {
           'SELECT break_duration_minutes, break_reason FROM break_logs WHERE attendance_id = ?',
           [existing[0].id]
         );
-        const realBreakTotal = allLogs.filter((l: {break_reason:string}) => l.break_reason !== 'resume_segment')
-          .reduce((s: number, l: {break_duration_minutes:number}) => s + (l.break_duration_minutes || 0), 0);
+        const realBreakTotal = allLogs
+          .filter(l => l.break_reason !== 'resume_segment')
+          .reduce((s, l) => s + (l.break_duration_minutes || 0), 0);
         await pool.query('UPDATE attendance SET total_break_minutes = ? WHERE id = ?', [realBreakTotal, existing[0].id]);
         return res.json({ success: true, message: 'Break ended, resumed working', status: 'working' });
       }
