@@ -165,9 +165,9 @@ export default function AttendancePage() {
                   <td className="px-4 py-3 hidden lg:table-cell text-sm text-gray-700 dark:text-gray-300 font-medium">{minutesToHours(rec.total_working_minutes)}</td>
                   <td className="px-4 py-3 hidden lg:table-cell text-sm text-gray-600 dark:text-gray-400">{minutesToHours(rec.total_break_minutes)}</td>
                   <td className="px-4 py-3 hidden lg:table-cell text-sm">
-                    {(rec as AttendanceRecord & { overtime_minutes?: number }).overtime_minutes ? (
+                    {rec.overtime_minutes > 0 ? (
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
-                        +{minutesToHours((rec as AttendanceRecord & { overtime_minutes?: number }).overtime_minutes!)}
+                        +{minutesToHours(rec.overtime_minutes)}
                       </span>
                     ) : <span className="text-gray-300 text-xs">—</span>}
                   </td>

@@ -201,8 +201,15 @@ export default function EmployeeDashboard() {
               </button>
             )}
             {status === 'clocked_out' && (
-              <div className="flex items-center gap-2 bg-white/20 backdrop-blur text-white px-5 py-3 rounded-xl text-sm font-medium">
-                <CheckCircle className="w-5 h-5" /> Day Complete
+              <div className="flex flex-wrap gap-3">
+                <button onClick={handleClockIn} disabled={actionLoading}
+                  className="flex items-center gap-2 bg-white text-green-700 hover:bg-green-50 font-bold px-6 py-3 rounded-xl transition shadow-md disabled:opacity-60 text-sm">
+                  <PlayCircle className="w-5 h-5" />
+                  {actionLoading ? 'Starting...' : 'Re-Clock In'}
+                </button>
+                <div className="flex items-center gap-2 bg-white/20 backdrop-blur text-white px-5 py-3 rounded-xl text-sm font-medium">
+                  <CheckCircle className="w-5 h-5" /> Day Complete (click to resume)
+                </div>
               </div>
             )}
           </div>

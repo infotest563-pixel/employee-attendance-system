@@ -241,15 +241,15 @@ export default function WorkHoursPage() {
         return (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {[
-              { label: 'Employees Logged', value: filled.length, sub: `of ${rows.length} rows`, color: 'blue' },
-              { label: 'Total Working Time', value: minsToLabel(totalWorking), sub: `${minsToDecimal(totalWorking)}h total`, color: 'green' },
-              { label: 'Average Per Person', value: minsToLabel(Math.round(avgHours)), sub: 'avg hours', color: 'purple' },
-              { label: 'Total Overtime', value: minsToLabel(totalOvertime), sub: totalOvertime > 0 ? 'extra hours' : 'none', color: 'orange' },
+              { label: 'Employees Logged',  value: filled.length,              sub: `of ${rows.length} rows`,         cls: 'bg-blue-50   dark:bg-blue-900/20   border-blue-100   dark:border-blue-800',   txt: 'text-blue-600   dark:text-blue-400',   val: 'text-blue-700   dark:text-blue-300'   },
+              { label: 'Total Working Time', value: minsToLabel(totalWorking),  sub: `${minsToDecimal(totalWorking)}h`, cls: 'bg-green-50  dark:bg-green-900/20  border-green-100  dark:border-green-800',  txt: 'text-green-600  dark:text-green-400',  val: 'text-green-700  dark:text-green-300'  },
+              { label: 'Average Per Person', value: minsToLabel(Math.round(avgHours)), sub: 'avg hours',              cls: 'bg-purple-50 dark:bg-purple-900/20 border-purple-100 dark:border-purple-800', txt: 'text-purple-600 dark:text-purple-400', val: 'text-purple-700 dark:text-purple-300' },
+              { label: 'Total Overtime',    value: minsToLabel(totalOvertime), sub: totalOvertime > 0 ? 'extra hours' : 'none', cls: 'bg-orange-50 dark:bg-orange-900/20 border-orange-100 dark:border-orange-800', txt: 'text-orange-600 dark:text-orange-400', val: 'text-orange-700 dark:text-orange-300' },
             ].map(c => (
-              <div key={c.label} className={`bg-${c.color}-50 dark:bg-${c.color}-900/20 rounded-2xl p-4 border border-${c.color}-100 dark:border-${c.color}-800`}>
-                <p className={`text-xs text-${c.color}-600 dark:text-${c.color}-400 font-medium mb-1`}>{c.label}</p>
-                <p className={`text-xl font-bold text-${c.color}-700 dark:text-${c.color}-300`}>{c.value}</p>
-                <p className={`text-xs text-${c.color}-500 dark:text-${c.color}-500 mt-0.5`}>{c.sub}</p>
+              <div key={c.label} className={`rounded-2xl p-4 border ${c.cls}`}>
+                <p className={`text-xs font-medium mb-1 ${c.txt}`}>{c.label}</p>
+                <p className={`text-xl font-bold ${c.val}`}>{c.value}</p>
+                <p className={`text-xs mt-0.5 ${c.txt} opacity-70`}>{c.sub}</p>
               </div>
             ))}
           </div>
