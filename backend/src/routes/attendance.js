@@ -5,7 +5,10 @@ const { pool } = require('../config/database');
 const { authenticate, authorizeAdmin } = require('../middleware/auth');
 const { createAuditLog } = require('../middleware/auditLog');
 
-// POST /api/attendance/clock-in
+// Helper: compute break/gap duration in minutes using JS (no julianday needed)
+function diffMins(start, end) {
+  return Math.max(0, Math.floor((new Date(end) - new Date(start)) / 60000));
+}
 router.post('/clock-in', authenticate, async (req, res) => {
   try {
     const empId = req.user.employee_id;
@@ -25,9 +28,10 @@ router.post('/clock-in', authenticate, async (req, res) => {
       );
       if (openBreak.length) {
         // End the break and resume working
+        const breakMins = diffMins(openBreak[0].break_start, now);
         await pool.query(
-          `UPDATE break_logs SET break_end = ?, break_duration_minutes = CAST((julianday(?) - julianday(break_start)) * 1440 AS INTEGER) WHERE id = ?`,
-          [now, now, openBreak[0].id]
+          `UPDATE break_logs SET break_end = ?, break_duration_minutes = ? WHERE id = ?`,
+          [now, breakMins, openBreak[0].id]
         );
         const [breaks] = await pool.query(
           'SELECT COALESCE(SUM(break_duration_minutes),0) as total FROM break_logs WHERE attendance_id = ?',
@@ -40,17 +44,15 @@ router.post('/clock-in', authenticate, async (req, res) => {
     }
 
     // Case 2: Record exists but clocked out — RE-CLOCK-IN (accumulate)
-    // Store the re-entry as a special break_log entry with reason 'resume'
     if (existing.length && existing[0].logout_time) {
-      // Reopen the attendance record (clear logout_time) so employee can continue
+      // Record the gap (absent time = from logout_time to now) — not counted as work
+      const gapMins = diffMins(existing[0].logout_time, now);
+      // Reopen attendance record
+      await pool.query(`UPDATE attendance SET logout_time = NULL WHERE id = ?`, [existing[0].id]);
+      // Store the gap as a resume_segment so clock-out can subtract it
       await pool.query(
-        `UPDATE attendance SET logout_time = NULL WHERE id = ?`,
-        [existing[0].id]
-      );
-      // Log this re-entry as a 'resume' segment in break_logs
-      await pool.query(
-        `INSERT INTO break_logs (attendance_id, employee_id, break_start, break_reason) VALUES (?, ?, ?, ?)`,
-        [existing[0].id, empId, now, 'resume_segment']
+        `INSERT INTO break_logs (attendance_id, employee_id, break_start, break_end, break_duration_minutes, break_reason) VALUES (?, ?, ?, ?, ?, ?)`,
+        [existing[0].id, empId, existing[0].logout_time, now, gapMins, 'resume_segment']
       );
       return res.json({ success: true, message: 'Re-clocked in — time continues accumulating', login_time: now, status: 'working' });
     }
