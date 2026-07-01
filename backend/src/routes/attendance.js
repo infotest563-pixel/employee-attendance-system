@@ -33,11 +33,14 @@ router.post('/clock-in', authenticate, async (req, res) => {
           `UPDATE break_logs SET break_end = ?, break_duration_minutes = ? WHERE id = ?`,
           [now, breakMins, openBreak[0].id]
         );
-        const [breaks] = await pool.query(
-          'SELECT COALESCE(SUM(break_duration_minutes),0) as total FROM break_logs WHERE attendance_id = ?',
+        // Recalculate real breaks only (in JS to avoid unsupported SQL)
+        const [allLogs] = await pool.query(
+          'SELECT break_duration_minutes, break_reason FROM break_logs WHERE attendance_id = ?',
           [existing[0].id]
         );
-        await pool.query('UPDATE attendance SET total_break_minutes = ? WHERE id = ?', [breaks[0].total, existing[0].id]);
+        const realBreakTotal = allLogs.filter((l: {break_reason:string}) => l.break_reason !== 'resume_segment')
+          .reduce((s: number, l: {break_duration_minutes:number}) => s + (l.break_duration_minutes || 0), 0);
+        await pool.query('UPDATE attendance SET total_break_minutes = ? WHERE id = ?', [realBreakTotal, existing[0].id]);
         return res.json({ success: true, message: 'Break ended, resumed working', status: 'working' });
       }
       return res.status(400).json({ success: false, message: 'Already clocked in and working' });
@@ -85,12 +88,12 @@ router.post('/clock-out', authenticate, async (req, res) => {
     if (!attendance.length) return res.status(400).json({ success: false, message: 'Not clocked in today' });
     if (attendance[0].logout_time) return res.status(400).json({ success: false, message: 'Already clocked out' });
 
-    // Close any open real breaks
-    const [openBreaks] = await pool.query(
-      'SELECT id, break_start FROM break_logs WHERE attendance_id = ? AND break_end IS NULL AND break_reason != ?',
-      [attendance[0].id, 'resume_segment']
+    // Close any open breaks (fetch all open ones, handle in JS)
+    const [allOpenBreaks] = await pool.query(
+      'SELECT id, break_start, break_reason FROM break_logs WHERE attendance_id = ? AND break_end IS NULL',
+      [attendance[0].id]
     );
-    for (const b of openBreaks) {
+    for (const b of allOpenBreaks) {
       const bMins = diffMins(b.break_start, now);
       await pool.query(
         `UPDATE break_logs SET break_end = ?, break_duration_minutes = ? WHERE id = ?`,
@@ -98,33 +101,23 @@ router.post('/clock-out', authenticate, async (req, res) => {
       );
     }
 
-    // Close any unclosed resume_segment (shouldn't happen but safety net)
-    const [openSegments] = await pool.query(
-      'SELECT id, break_start FROM break_logs WHERE attendance_id = ? AND break_end IS NULL AND break_reason = ?',
-      [attendance[0].id, 'resume_segment']
+    // Fetch all break_logs for this attendance and compute in JS
+    const [allBreakLogs] = await pool.query(
+      'SELECT * FROM break_logs WHERE attendance_id = ?',
+      [attendance[0].id]
     );
-    for (const s of openSegments) {
-      const sMins = diffMins(s.break_start, now);
-      await pool.query(
-        `UPDATE break_logs SET break_end = ?, break_duration_minutes = ? WHERE id = ?`,
-        [now, sMins, s.id]
-      );
+
+    let totalBreak = 0;  // real break minutes
+    let totalGap   = 0;  // absent gap minutes (re-clock-in gaps)
+    for (const bl of allBreakLogs) {
+      const mins = bl.break_duration_minutes || 0;
+      if (bl.break_reason === 'resume_segment') {
+        totalGap += mins;
+      } else {
+        totalBreak += mins;
+      }
     }
 
-    // Sum all break minutes (real breaks only, not resume_segments)
-    const [breaks] = await pool.query(
-      `SELECT COALESCE(SUM(break_duration_minutes),0) as total FROM break_logs WHERE attendance_id = ? AND break_reason != ?`,
-      [attendance[0].id, 'resume_segment']
-    );
-    // Sum gap minutes (time between clock-out and re-clock-in = resume_segment duration before it was used as "gap")
-    // Actually gaps = sum of resume_segment break_duration_minutes = time they were ABSENT between segments
-    const [gaps] = await pool.query(
-      `SELECT COALESCE(SUM(break_duration_minutes),0) as total FROM break_logs WHERE attendance_id = ? AND break_reason = ?`,
-      [attendance[0].id, 'resume_segment']
-    );
-
-    const totalBreak = breaks[0].total || 0;
-    const totalGap   = gaps[0].total || 0;  // time absent between re-clock-ins (not paid)
     const totalMinutes = moment(now).diff(moment(attendance[0].login_time), 'minutes');
     const workingMinutes = Math.max(0, totalMinutes - totalBreak - totalGap);
 

@@ -5,7 +5,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { PlayCircle, StopCircle, Coffee, Clock, Calendar, CheckCircle } from 'lucide-react';
+import { PlayCircle, StopCircle, Coffee, Clock, CheckCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatDateTime, minutesToHours, breakReasonLabel } from '@/lib/utils';
 
@@ -35,7 +35,6 @@ const BREAK_REASONS = [
 ];
 
 export default function EmployeeDashboard() {
-  const { user } = useAuth();
   const [status, setStatus] = useState<WorkStatus>('not_started');
   const [attendance, setAttendance] = useState<AttendanceData | null>(null);
   const [breaks, setBreaks] = useState<BreakLog[]>([]);
@@ -118,11 +117,15 @@ export default function EmployeeDashboard() {
   };
 
   const liveWorkingMins = (() => {
-    if (!attendance?.login_time || attendance?.logout_time) return attendance?.total_working_minutes || 0;
+    // When clocked out — show stored total_working_minutes
+    if (!attendance) return 0;
+    if (attendance.logout_time) return attendance.total_working_minutes || 0;
+    // When working — compute live from login time
     const totalMins = Math.floor((currentTime.getTime() - new Date(attendance.login_time).getTime()) / 60000);
-    const breakMins = status === 'on_break'
-      ? (attendance.total_break_minutes || 0) + Math.floor((currentTime.getTime() - new Date(currentBreak!.break_start).getTime()) / 60000)
+    const breakMins = status === 'on_break' && currentBreak
+      ? (attendance.total_break_minutes || 0) + Math.floor((currentTime.getTime() - new Date(currentBreak.break_start).getTime()) / 60000)
       : (attendance.total_break_minutes || 0);
+    // Note: gap time (resume_segments) is accounted for in total_break_minutes from server
     return Math.max(0, totalMins - breakMins);
   })();
 
