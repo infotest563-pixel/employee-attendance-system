@@ -137,7 +137,7 @@ export default function AttendancePage() {
               {loading ? (
                 [...Array(8)].map((_, i) => (
                   <tr key={i} className="border-b border-gray-50 dark:border-gray-800">
-                    {[...Array(8)].map((_, j) => (
+                    {[...Array(9)].map((_, j) => (
                       <td key={j} className="px-4 py-4"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" /></td>
                     ))}
                   </tr>
